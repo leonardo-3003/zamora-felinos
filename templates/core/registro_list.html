@@ -1,0 +1,138 @@
+{% extends "core/base.html" %}
+{% block title %}Registros · Zamora Felinos{% endblock %}
+{% block content %}
+
+<style>
+  .id-chip {
+    font-size: .78rem;
+    background: #eef4f4;
+    color: var(--brand-teal-darker);
+    padding: .2rem .5rem;
+    border-radius: .4rem;
+    font-weight: 600;
+  }
+  .grupo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    padding: .3rem .55rem;
+    border-radius: .5rem;
+    font-weight: 700;
+    font-size: .78rem;
+    color: #fff;
+  }
+</style>
+
+{% if nuevo_pdf_id %}
+  <div class="alert alert-info d-flex align-items-center gap-2">
+    <i class="bi bi-file-earmark-pdf-fill"></i>
+    <span>Descargando el consentimiento informado en PDF del registro recién creado…</span>
+  </div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+  <div>
+    <h3 class="mb-1">Registros de Felinos</h3>
+    <p class="text-muted mb-0">Total: {{ paginator.count }} registro{{ paginator.count|pluralize }}</p>
+  </div>
+  <a href="{% url 'registro_create' %}" class="btn btn-primary">
+    <i class="bi bi-plus-circle"></i> Nuevo registro
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th style="width: 180px;">ID Gato</th>
+            <th style="width: 150px;">Nombre</th>
+            <th style="width: 100px;">Sexo</th>
+            <th style="width: 100px;">Edad</th>
+            <th style="width: 150px;">Propietario</th>
+            <th style="width: 120px;">Barrio</th>
+            <th style="width: 100px;">Grupo Sanguíneo</th>
+            <th style="width: 150px;">Fecha Muestreo</th>
+            <th style="width: 180px;" class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in registros %}
+          <tr>
+            <td><span class="id-chip">{{ r.id_gato|slice:":8" }}…</span></td>
+            <td class="fw-semibold">{{ r.nombre|default:"Sin nombre" }}</td>
+            <td>
+              {% if r.sexo == 'M' %}
+                <span class="badge bg-info"><i class="bi bi-gender-male"></i> Macho</span>
+              {% else %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-gender-female"></i> Hembra</span>
+              {% endif %}
+            </td>
+            <td>{{ r.edad_meses }} meses</td>
+            <td>
+              <small>{{ r.propietario.nombres }} {{ r.propietario.apellidos }}</small>
+            </td>
+            <td><small class="text-muted">{{ r.propietario.barrio }}</small></td>
+            <td>
+              {% if r.resultado_kit_ic == 'A' %}
+                <span class="grupo-badge" style="background-color: #2a9d8f;">A</span>
+              {% elif r.resultado_kit_ic == 'B' %}
+                <span class="grupo-badge" style="background-color: #e76f51;">B</span>
+              {% elif r.resultado_kit_ic == 'AB' %}
+                <span class="grupo-badge" style="background-color: #e9c46a; color: #000;">AB</span>
+              {% else %}
+                <span class="grupo-badge bg-secondary">ND</span>
+              {% endif %}
+            </td>
+            <td><small class="text-muted">{{ r.fecha_muestreo|date:"d/m/Y H:i" }}</small></td>
+            <td class="text-center">
+              <a href="{% url 'generar_consentimiento' r.pk %}" class="btn btn-success btn-sm" title="Descargar consentimiento informado" target="_blank">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+              </a>
+              <a href="{% url 'registro_update' r.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar registro">
+                <i class="bi bi-pencil"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-5">
+              <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+              <p class="mt-3 mb-2">Aún no hay registros</p>
+              <a href="{% url 'registro_create' %}" class="btn btn-primary btn-sm">Crear el primero</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+  <ul class="pagination">
+    {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="bi bi-chevron-left"></i> Anterior</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente <i class="bi bi-chevron-right"></i></a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+{% if nuevo_pdf_id %}
+<script>
+  // Dispara la descarga del PDF de consentimiento del registro recién creado.
+  // Es una navegación normal (no window.open), así que no la bloquea el
+  // popup-blocker: el Content-Disposition: attachment hace que el navegador
+  // la guarde en vez de salir de esta página.
+  window.location = "{% url 'generar_consentimiento' nuevo_pdf_id %}";
+</script>
+{% endif %}
+
+{% endblock %}

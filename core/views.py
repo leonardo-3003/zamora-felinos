@@ -1,0 +1,414 @@
+import csv
+from io import BytesIO
+from datetime import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
+from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse, reverse_lazy
+from django.views.generic import CreateView, ListView, UpdateView
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+
+from .forms import RegistroGatoForm, PropietarioForm
+from .models import RegistroGato, Propietario
+from .stats import crosstab
+
+GRUPOS = ["A", "B", "AB", "ND"]
+
+
+def dashboard(request):
+    """Panel público con estadísticas agregadas. El mapa con la ubicación
+    exacta de cada domicilio SOLO se calcula y se envía al navegador si hay
+    una sesión iniciada — los propietarios firmaron un consentimiento que
+    promete confidencialidad, así que esos datos no deben quedar expuestos
+    (ni siquiera en el HTML/JSON de la página) para visitantes anónimos."""
+    registros = list(
+        RegistroGato.objects.select_related('propietario').all().values(
+            "resultado_kit_ic",
+            "sexo",
+            "estado_salud",
+            "antecedente_transfusion",
+            "propietario__barrio",
+            "edad_meses",
+        )
+    )
+    total = len(registros)
+
+    # Conteo agregado (no identificable) de registros con ubicación: se
+    # puede mostrar siempre. Las coordenadas y nombres detallados del mapa
+    # de calor solo se arman para usuarios autenticados.
+    con_ubicacion_qs = RegistroGato.objects.filter(
+        propietario__latitud__isnull=False, propietario__longitud__isnull=False
+    )
+    total_con_ubicacion = con_ubicacion_qs.count()
+
+    coordenadas = []
+    if request.user.is_authenticated:
+        # Convertidas a tipos nativos de Python: values_list trae Decimal/tuplas,
+        # que no son JSON-serializables directamente para el <script> del template.
+        coordenadas = [
+            [float(lat), float(lng), nombre, resultado]
+            for lat, lng, nombre, resultado in con_ubicacion_qs
+            .select_related('propietario')
+            .values_list('propietario__latitud', 'propietario__longitud', 'nombre', 'resultado_kit_ic')
+        ]
+
+    # Frecuencias del grupo sanguíneo (kit de inmunocromatografía = referencia)
+    frecuencias = {g: 0 for g in GRUPOS}
+    for r in registros:
+        frecuencias[r["resultado_kit_ic"]] = frecuencias.get(r["resultado_kit_ic"], 0) + 1
+
+    # Grupo etario calculado en Python (no existe como columna en la BD)
+    for r in registros:
+        meses = r["edad_meses"]
+        if meses < 12:
+            r["grupo_edad"] = "Cachorro (<12 m)"
+        elif meses <= 84:
+            r["grupo_edad"] = "Adulto (1-7 a)"
+        else:
+            r["grupo_edad"] = "Senil (>7 a)"
+
+    # Antecedente transfusional legible
+    for r in registros:
+        r["antecedente_legible"] = "Sí" if r["antecedente_transfusion"] else "No"
+
+    cruces = {
+        "Sexo": crosstab(registros, "sexo", GRUPOS),
+        "Grupo etario": crosstab(registros, "grupo_edad", GRUPOS),
+        "Estado de salud": crosstab(registros, "estado_salud", GRUPOS),
+        "Antecedente transfusional": crosstab(registros, "antecedente_legible", GRUPOS),
+        "Barrio": crosstab(registros, "propietario__barrio", GRUPOS),
+    }
+
+    contexto = {
+        "total": total,
+        "frecuencias": frecuencias,
+        "cruces": cruces,
+        "grupos_labels": GRUPOS,
+        "frecuencias_valores": [frecuencias[g] for g in GRUPOS],
+        "coordenadas": coordenadas,
+        "total_con_ubicacion": total_con_ubicacion,
+    }
+    return render(request, "core/dashboard.html", contexto)
+
+
+class RegistroListView(LoginRequiredMixin, ListView):
+    model = RegistroGato
+    template_name = "core/registro_list.html"
+    context_object_name = "registros"
+    paginate_by = 25
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Si venimos de crear un registro nuevo, dispara la descarga automática
+        # del PDF de consentimiento para ese registro (ver RegistroCreateView).
+        nuevo_pdf = self.request.GET.get("nuevo_pdf", "")
+        if nuevo_pdf.isdigit() and RegistroGato.objects.filter(pk=nuevo_pdf).exists():
+            context["nuevo_pdf_id"] = int(nuevo_pdf)
+        return context
+
+
+class RegistroCreateView(LoginRequiredMixin, CreateView):
+    model = RegistroGato
+    form_class = RegistroGatoForm
+    template_name = "core/registro_form.html"
+
+    def get_success_url(self):
+        # Al terminar de crear el registro, la lista dispara automáticamente
+        # la descarga del PDF de consentimiento de este registro recién creado.
+        return f"{reverse('registro_list')}?nuevo_pdf={self.object.pk}"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context["propietario_form"] = PropietarioForm(self.request.POST)
+        else:
+            context["propietario_form"] = PropietarioForm()
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        propietario_form = context["propietario_form"]
+
+        if propietario_form.is_valid():
+            # Intentar buscar un propietario existente por cédula
+            cedula = propietario_form.cleaned_data["cedula"]
+            propietario, created = Propietario.objects.get_or_create(
+                cedula=cedula,
+                defaults={
+                    "nombres": propietario_form.cleaned_data["nombres"],
+                    "apellidos": propietario_form.cleaned_data["apellidos"],
+                    "telefono": propietario_form.cleaned_data["telefono"],
+                    "correo": propietario_form.cleaned_data["correo"],
+                    "barrio": propietario_form.cleaned_data["barrio"],
+                    "latitud": propietario_form.cleaned_data.get("latitud"),
+                    "longitud": propietario_form.cleaned_data.get("longitud"),
+                }
+            )
+            # Si ya existía, actualizar los datos
+            if not created:
+                propietario.nombres = propietario_form.cleaned_data["nombres"]
+                propietario.apellidos = propietario_form.cleaned_data["apellidos"]
+                propietario.telefono = propietario_form.cleaned_data["telefono"]
+                propietario.correo = propietario_form.cleaned_data["correo"]
+                propietario.barrio = propietario_form.cleaned_data["barrio"]
+                propietario.latitud = propietario_form.cleaned_data.get("latitud")
+                propietario.longitud = propietario_form.cleaned_data.get("longitud")
+                propietario.save()
+
+            form.instance.propietario = propietario
+            form.instance.registrado_por = self.request.user
+            messages.success(self.request, "Registro guardado correctamente.")
+            return super().form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+
+class RegistroUpdateView(LoginRequiredMixin, UpdateView):
+    model = RegistroGato
+    form_class = RegistroGatoForm
+    template_name = "core/registro_form.html"
+    success_url = reverse_lazy("registro_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context["propietario_form"] = PropietarioForm(self.request.POST, instance=self.object.propietario)
+        else:
+            context["propietario_form"] = PropietarioForm(instance=self.object.propietario)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        propietario_form = context["propietario_form"]
+
+        if propietario_form.is_valid():
+            propietario_form.save()
+            messages.success(self.request, "Registro actualizado correctamente.")
+            return super().form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+
+@login_required
+def exportar_csv(request):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="registros_zamora_felinos.csv"'
+
+    writer = csv.writer(response)
+    # Encabezados del CSV
+    writer.writerow([
+        "id_gato", "nombre", "tipo_raza", "raza_definida", "sexo", "edad_meses",
+        "propietario_cedula", "propietario_nombres", "propietario_apellidos", "barrio",
+        "estado_salud", "temperatura", "peso", "frecuencia_cardiaca", "frecuencia_respiratoria",
+        "tiene_carnet_vacunacion", "antecedente_transfusion", "resultado_kit_ic",
+        "fecha_muestreo", "observaciones",
+    ])
+
+    # Obtener datos con relaciones
+    for r in RegistroGato.objects.select_related('propietario').all():
+        writer.writerow([
+            r.id_gato, r.nombre, r.tipo_raza, r.raza_definida, r.sexo, r.edad_meses,
+            r.propietario.cedula, r.propietario.nombres, r.propietario.apellidos, r.propietario.barrio,
+            r.estado_salud, r.temperatura, r.peso, r.frecuencia_cardiaca, r.frecuencia_respiratoria,
+            r.tiene_carnet_vacunacion, r.antecedente_transfusion, r.resultado_kit_ic,
+            r.fecha_muestreo, r.observaciones,
+        ])
+
+    return response
+
+
+@login_required
+def generar_consentimiento_pdf(request, registro_id):
+    """Genera el PDF (a una sola página) del consentimiento informado de un registro."""
+    registro = get_object_or_404(RegistroGato.objects.select_related("propietario"), pk=registro_id)
+    propietario = registro.propietario
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        topMargin=0.5 * inch,
+        bottomMargin=0.5 * inch,
+        leftMargin=0.6 * inch,
+        rightMargin=0.6 * inch,
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    ancho_util = doc.width  # 8.5in - márgenes izq/der
+
+    NAVY = colors.HexColor("#0f3f5f")
+    TEAL = colors.HexColor("#1c7d71")
+    LIGHT_BLUE = colors.HexColor("#e8f2f5")
+    LIGHT_ORANGE = colors.HexColor("#fdf1ea")
+    GRAY = colors.HexColor("#6b7b7a")
+    BORDER = colors.HexColor("#d8dedd")
+
+    institucion_style = ParagraphStyle(
+        "Institucion", parent=styles["Normal"], fontSize=8.8, textColor=colors.white,
+        alignment=1, fontName="Helvetica",
+    )
+    titulo_style = ParagraphStyle(
+        "Titulo", parent=styles["Heading1"], fontSize=15, textColor=colors.white,
+        alignment=1, fontName="Helvetica-Bold", spaceBefore=0, spaceAfter=0, leading=17,
+    )
+    subtitulo_style = ParagraphStyle(
+        "Subtitulo", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#cfe8e3"),
+        alignment=1, fontName="Helvetica-Oblique",
+    )
+    meta_style = ParagraphStyle(
+        "Meta", parent=styles["Normal"], fontSize=8.5, textColor=GRAY, alignment=2,
+    )
+    normal_style = ParagraphStyle(
+        "CustomNormal", parent=styles["Normal"], fontSize=9.3, leading=12.8, alignment=4,
+    )
+    label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=8.7, fontName="Helvetica-Bold")
+    value_style = ParagraphStyle("Value", parent=styles["Normal"], fontSize=8.7, fontName="Helvetica")
+    header_cell_style = ParagraphStyle(
+        "HeaderCell", parent=styles["Normal"], fontSize=9.3, fontName="Helvetica-Bold",
+        textColor=colors.white, alignment=1,
+    )
+    firma_caption_style = ParagraphStyle(
+        "FirmaCaption", parent=styles["Normal"], fontSize=8.3, alignment=1, textColor=GRAY, leading=11,
+    )
+    footer_style = ParagraphStyle(
+        "Footer", parent=styles["Normal"], fontSize=7.3, textColor=GRAY, alignment=1,
+    )
+
+    def lbl(texto):
+        return Paragraph(texto, label_style)
+
+    def val(texto):
+        return Paragraph(str(texto), value_style)
+
+    # --- Encabezado institucional -------------------------------------
+    encabezado = Table(
+        [
+            [Paragraph("UNIVERSIDAD NACIONAL DE LOJA · MAESTRÍA EN MEDICINA VETERINARIA", institucion_style)],
+            [Paragraph("CONSENTIMIENTO INFORMADO", titulo_style)],
+            [Paragraph("Estudio de prevalencia de grupos sanguíneos felinos en el cantón Zamora, Ecuador", subtitulo_style)],
+        ],
+        colWidths=[ancho_util],
+    )
+    encabezado.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), NAVY),
+        ("TOPPADDING", (0, 0), (0, 0), 9),
+        ("BOTTOMPADDING", (0, 0), (0, 0), 1),
+        ("TOPPADDING", (0, 1), (0, 1), 1),
+        ("BOTTOMPADDING", (0, 1), (0, 1), 1),
+        ("TOPPADDING", (0, 2), (0, 2), 1),
+        ("BOTTOMPADDING", (0, 2), (0, 2), 10),
+    ]))
+    story.append(encabezado)
+    story.append(Spacer(1, 0.18 * inch))
+
+    # --- Trazabilidad del documento ------------------------------------
+    story.append(Paragraph(
+        f"Código de registro: <b>{registro.id_gato}</b> &middot; "
+        f"Fecha de emisión: {datetime.now().strftime('%d/%m/%Y')}",
+        meta_style,
+    ))
+    story.append(Spacer(1, 0.1 * inch))
+
+    # --- Texto del consentimiento --------------------------------------
+    nombre_felino = registro.nombre if registro.nombre else "sin nombre registrado"
+    texto_consentimiento = f"""
+    Yo, <b>{propietario.nombre_completo}</b>, con cédula <b>{propietario.cedula}</b>, propietario(a) del felino
+    <b>{nombre_felino}</b>, autorizo al equipo de investigación de la Maestría en Medicina Veterinaria de la
+    Universidad Nacional de Loja a realizar la toma de una muestra de sangre (1&#8211;2 mL) mediante venopunción
+    de la vena cefálica (miembro anterior) o safena medial (miembro posterior) de mi animal, con fines
+    exclusivamente académicos y de investigación científica. Entiendo que el procedimiento es mínimamente
+    invasivo, que mi participación es voluntaria y que los datos obtenidos serán tratados de forma confidencial,
+    utilizados únicamente para este estudio de prevalencia de grupos sanguíneos felinos en el cantón Zamora.
+    """
+    story.append(Paragraph(texto_consentimiento, normal_style))
+    story.append(Spacer(1, 0.22 * inch))
+
+    # --- Tabla combinada: propietario + felino -------------------------
+    raza_completa = registro.get_tipo_raza_display()
+    if registro.raza_definida:
+        raza_completa += f" – {registro.get_raza_definida_display()}"
+
+    filas = [
+        [
+            Paragraph("DATOS DEL PROPIETARIO", header_cell_style), "",
+            Paragraph("DATOS DEL FELINO", header_cell_style), "",
+        ],
+        [lbl("Nombres y apellidos"), val(propietario.nombre_completo), lbl("Nombre"), val(nombre_felino)],
+        [lbl("Cédula"), val(propietario.cedula), lbl("Raza"), val(raza_completa)],
+        [lbl("Teléfono"), val(propietario.telefono), lbl("Sexo"), val(registro.get_sexo_display())],
+        [
+            lbl("Correo electrónico"), val(propietario.correo or "No proporcionado"),
+            lbl("Edad"), val(f"{registro.edad_meses} meses ({registro.grupo_edad})"),
+        ],
+        [lbl("Barrio/Sector"), val(propietario.barrio), lbl("Estado de salud"), val(registro.get_estado_salud_display())],
+    ]
+
+    col_w = [ancho_util * 0.185, ancho_util * 0.315, ancho_util * 0.17, ancho_util * 0.33]
+    tabla = Table(filas, colWidths=col_w)
+    tabla.setStyle(TableStyle([
+        ("SPAN", (0, 0), (1, 0)),
+        ("SPAN", (2, 0), (3, 0)),
+        ("BACKGROUND", (0, 0), (1, 0), NAVY),
+        ("BACKGROUND", (2, 0), (3, 0), TEAL),
+        ("BACKGROUND", (0, 1), (0, -1), LIGHT_BLUE),
+        ("BACKGROUND", (2, 1), (2, -1), LIGHT_ORANGE),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("GRID", (0, 1), (-1, -1), 0.4, BORDER),
+        ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#c7d0cf")),
+    ]))
+    story.append(tabla)
+    story.append(Spacer(1, 0.3 * inch))
+
+    # --- Firma -----------------------------------------------------------
+    firma_tabla = Table(
+        [
+            ["", ""],
+            [
+                Paragraph(f"Firma del propietario<br/>C.I. {propietario.cedula}", firma_caption_style),
+                Paragraph(f"Zamora, Ecuador &mdash; {datetime.now().strftime('%d/%m/%Y')}", firma_caption_style),
+            ],
+        ],
+        colWidths=[ancho_util / 2, ancho_util / 2],
+        rowHeights=[0.5 * inch, None],
+    )
+    firma_tabla.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (0, 0), 0.8, colors.black),
+        ("LINEBELOW", (1, 0), (1, 0), 0.8, colors.black),
+        ("LEFTPADDING", (0, 0), (0, -1), 0.4 * inch),
+        ("RIGHTPADDING", (0, 0), (0, -1), 0.4 * inch),
+        ("LEFTPADDING", (1, 0), (1, -1), 0.4 * inch),
+        ("RIGHTPADDING", (1, 0), (1, -1), 0.4 * inch),
+        ("TOPPADDING", (0, 1), (-1, 1), 5),
+    ]))
+    story.append(firma_tabla)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # --- Pie de página ---------------------------------------------------
+    story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER))
+    story.append(Spacer(1, 0.05 * inch))
+    story.append(Paragraph(
+        "Documento generado automáticamente por el sistema Zamora Felinos &middot; "
+        f"Emitido el {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        footer_style,
+    ))
+
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="consentimiento_{registro.id_gato}.pdf"'
+    response.write(pdf)
+
+    return response

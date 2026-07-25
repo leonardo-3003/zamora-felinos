@@ -1,0 +1,66 @@
+{% extends "core/base.html" %}
+{% block title %}Iniciar sesión · Zamora Felinos{% endblock %}
+{% block content %}
+<style>
+  body { background: radial-gradient(circle at top left, #12507a 0%, var(--brand-navy-dark) 45%, #0a1f30 100%); }
+  .login-wrap { min-height: calc(100vh - 3rem); display: flex; align-items: center; justify-content: center; }
+  .login-card {
+    background: var(--brand-surface);
+    border-radius: 1.25rem;
+    box-shadow: 0 24px 60px rgba(4, 20, 32, .45);
+    overflow: hidden;
+  }
+  .login-icon {
+    width: 3.4rem;
+    height: 3.4rem;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, var(--brand-teal), var(--brand-teal-darker));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    margin: 0 auto 1rem;
+    box-shadow: 0 10px 22px rgba(28, 125, 113, .35);
+  }
+  .login-card .form-label { font-weight: 600; font-size: .85rem; color: var(--brand-navy-dark); }
+</style>
+
+<div class="login-wrap">
+  <div class="login-card p-4 p-md-5" style="max-width: 400px; width: 100%;">
+    <div class="text-center mb-4">
+      <div class="login-icon">🐈</div>
+      <h4 class="mb-1">Zamora Felinos</h4>
+      <p class="text-muted small mb-0">Ingresa con tu cuenta del equipo de investigación</p>
+    </div>
+
+    {% if form.errors %}
+      <div class="alert alert-danger d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>Usuario o contraseña incorrectos.</span>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Usuario</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+          <input type="text" name="username" class="form-control" required autofocus>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="form-label">Contraseña</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="bi bi-lock"></i></span>
+          <input type="password" name="password" class="form-control" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 py-2">
+        <i class="bi bi-box-arrow-in-right me-1"></i> Ingresar
+      </button>
+      <input type="hidden" name="next" value="{{ next }}">
+    </form>
+  </div>
+</div>
+{% endblock %}

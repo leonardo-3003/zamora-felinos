@@ -1,0 +1,523 @@
+{% extends "core/base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} registro · Zamora Felinos{% endblock %}
+
+{% block content %}
+
+<style>
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+  }
+  .step-header .step-num {
+    width: 2.3rem;
+    height: 2.3rem;
+    flex: none;
+    border-radius: .7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    color: #fff;
+  }
+  .step-header h5 { margin: 0; }
+  .step-header small { color: var(--brand-muted); display: block; }
+  .form-section { padding-bottom: 1.75rem; margin-bottom: 1.75rem; border-bottom: 1px dashed #e3e8e8; }
+  .form-section:last-of-type { border-bottom: none; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+  <div>
+    <h3 class="mb-1">{% if object %}Editar Registro{% else %}Nuevo Registro de Felino{% endif %}</h3>
+    <p class="text-muted mb-0">
+      {% if object %}
+        ID: <span class="id-chip" style="background:#eef4f4;color:var(--brand-teal-darker);padding:.2rem .5rem;border-radius:.4rem;font-weight:600;">{{ object.id_gato|slice:":8" }}…</span>
+      {% else %}
+        Complete el formulario para registrar un nuevo felino
+      {% endif %}
+    </p>
+  </div>
+  <a href="{% url 'registro_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Volver a registros
+  </a>
+</div>
+
+<!-- Mostrar alerta de errores -->
+{% if form.errors or propietario_form.errors %}
+  <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>¡Error!</strong> Por favor completa todos los campos obligatorios marcados en rojo.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body p-4 p-md-5">
+  <form method="post" novalidate id="registro-form">
+    {% csrf_token %}
+
+    <!-- Sección: Datos del Propietario -->
+    <div class="form-section">
+    <div class="step-header">
+      <span class="step-num" style="background: var(--brand-navy);">1</span>
+      <div>
+        <h5>Datos del Propietario</h5>
+        <small>Información de contacto y ubicación</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      {% for field in propietario_form %}
+        {% if field.name not in 'latitud,longitud' %}
+          <div class="col-md-6">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+              <div class="text-danger small">{{ field.errors|striptags }}</div>
+            {% endif %}
+          </div>
+        {% else %}
+          {{ field }}
+        {% endif %}
+      {% endfor %}
+
+      <!-- Selector de ubicación en el mapa -->
+      <div class="col-12">
+        <label class="form-label">Ubicación del domicilio</label>
+        <div class="input-group mb-1">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" id="direccion-busqueda" class="form-control" placeholder="Escribe una dirección o punto de referencia (ej. Calle Diego de Vaca y Sevilla de Oro)">
+          <button type="button" id="btn-buscar-direccion" class="btn btn-outline-secondary">Buscar en el mapa</button>
+        </div>
+        <div id="direccion-busqueda-msg" class="small mb-2"></div>
+        <div id="map" style="height: 400px; width: 100%; border-radius: .6rem; overflow: hidden;"></div>
+        <small class="text-muted">Escribe una dirección y presiona "Buscar en el mapa", o haz clic directamente sobre el mapa para ubicar el punto exacto.</small>
+      </div>
+    </div>
+    </div>
+
+    <!-- Sección: Datos del Felino -->
+    <div class="form-section">
+    <div class="step-header">
+      <span class="step-num" style="background: var(--brand-orange-dark);">2</span>
+      <div>
+        <h5>Datos del Felino</h5>
+        <small>Identificación, raza y características básicas</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      {% if object %}
+        <div class="col-md-6">
+          <label class="form-label">ID del gato</label>
+          <input type="text" class="form-control" value="{{ object.id_gato }}" readonly disabled>
+          <small class="text-muted">El ID se genera automáticamente</small>
+        </div>
+      {% endif %}
+
+      <!-- Campo Nombre -->
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.nombre.id_for_label }}">{{ form.nombre.label }}</label>
+        {{ form.nombre }}
+        {% if form.nombre.errors %}
+          <div class="text-danger small">{{ form.nombre.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Campo Sexo -->
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.sexo.id_for_label }}">{{ form.sexo.label }}</label>
+        {{ form.sexo }}
+        {% if form.sexo.errors %}
+          <div class="text-danger small">{{ form.sexo.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Campo Edad -->
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.edad_meses.id_for_label }}">{{ form.edad_meses.label }}</label>
+        {{ form.edad_meses }}
+        {% if form.edad_meses.errors %}
+          <div class="text-danger small">{{ form.edad_meses.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Campo Tipo de Raza -->
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.tipo_raza.id_for_label }}">{{ form.tipo_raza.label }}</label>
+        {{ form.tipo_raza }}
+        {% if form.tipo_raza.errors %}
+          <div class="text-danger small">{{ form.tipo_raza.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Campo Raza Específica (se muestra solo si es "Raza definida") -->
+      <div class="col-md-6" id="raza-definida-container" style="display: none;">
+        <label class="form-label" for="{{ form.raza_definida.id_for_label }}">{{ form.raza_definida.label }}</label>
+        {{ form.raza_definida }}
+        {% if form.raza_definida.errors %}
+          <div class="text-danger small">{{ form.raza_definida.errors|striptags }}</div>
+        {% endif %}
+      </div>
+    </div>
+    </div>
+
+    <!-- Sección: Estado de Salud -->
+    <div class="form-section">
+    <div class="step-header">
+      <span class="step-num" style="background: var(--brand-teal-dark);">3</span>
+      <div>
+        <h5>Estado de Salud</h5>
+        <small>Signos vitales y condición general</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.estado_salud.id_for_label }}">{{ form.estado_salud.label }}</label>
+        {{ form.estado_salud }}
+        {% if form.estado_salud.errors %}
+          <div class="text-danger small">{{ form.estado_salud.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.temperatura.id_for_label }}">{{ form.temperatura.label }}</label>
+        {{ form.temperatura }}
+        {% if form.temperatura.errors %}
+          <div class="text-danger small">{{ form.temperatura.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.peso.id_for_label }}">{{ form.peso.label }}</label>
+        {{ form.peso }}
+        {% if form.peso.errors %}
+          <div class="text-danger small">{{ form.peso.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.frecuencia_cardiaca.id_for_label }}">{{ form.frecuencia_cardiaca.label }}</label>
+        {{ form.frecuencia_cardiaca }}
+        {% if form.frecuencia_cardiaca.errors %}
+          <div class="text-danger small">{{ form.frecuencia_cardiaca.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.frecuencia_respiratoria.id_for_label }}">{{ form.frecuencia_respiratoria.label }}</label>
+        {{ form.frecuencia_respiratoria }}
+        {% if form.frecuencia_respiratoria.errors %}
+          <div class="text-danger small">{{ form.frecuencia_respiratoria.errors|striptags }}</div>
+        {% endif %}
+      </div>
+    </div>
+    </div>
+
+    <!-- Sección: Vacunación -->
+    <div class="form-section">
+    <div class="step-header">
+      <span class="step-num" style="background: #0d8fa8;">4</span>
+      <div>
+        <h5>Vacunación</h5>
+        <small>Carnet y vacunas aplicadas</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="form-check form-switch">
+          {{ form.tiene_carnet_vacunacion }}
+          <label class="form-check-label" for="{{ form.tiene_carnet_vacunacion.id_for_label }}">
+            {{ form.tiene_carnet_vacunacion.label }}
+          </label>
+        </div>
+      </div>
+
+      <!-- Vacunas (se muestra solo si tiene carnet) -->
+      <div class="col-12" id="vacunas-container" style="display: none;">
+        <label class="form-label">{{ form.vacunas_seleccionadas.label }}</label>
+        <div class="ms-3 d-flex flex-column gap-1">
+          {% for choice in form.vacunas_seleccionadas %}
+            <div class="form-check">
+              {{ choice }}
+            </div>
+          {% endfor %}
+        </div>
+        {% if form.vacunas_seleccionadas.errors %}
+          <div class="text-danger small">{{ form.vacunas_seleccionadas.errors|striptags }}</div>
+        {% endif %}
+      </div>
+    </div>
+    </div>
+
+    <!-- Sección: Antecedentes y Resultados -->
+    <div class="form-section">
+    <div class="step-header">
+      <span class="step-num" style="background: var(--brand-orange);">5</span>
+      <div>
+        <h5>Antecedentes y Resultados</h5>
+        <small>Historial transfusional y resultado del laboratorio</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="form-check form-switch mt-4">
+          {{ form.antecedente_transfusion }}
+          <label class="form-check-label" for="{{ form.antecedente_transfusion.id_for_label }}">
+            {{ form.antecedente_transfusion.label }}
+          </label>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.resultado_kit_ic.id_for_label }}">{{ form.resultado_kit_ic.label }}</label>
+        {{ form.resultado_kit_ic }}
+        {% if form.resultado_kit_ic.errors %}
+          <div class="text-danger small">{{ form.resultado_kit_ic.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label" for="{{ form.observaciones.id_for_label }}">{{ form.observaciones.label }}</label>
+        {{ form.observaciones }}
+        {% if form.observaciones.errors %}
+          <div class="text-danger small">{{ form.observaciones.errors|striptags }}</div>
+        {% endif %}
+      </div>
+    </div>
+    </div>
+
+    <div class="pt-2">
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-circle"></i> Guardar Registro
+        </button>
+        <a href="{% url 'registro_list' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Cancelar
+        </a>
+        {% if object %}
+          <a href="{% url 'generar_consentimiento' object.pk %}" class="btn btn-success ms-auto" target="_blank">
+            <i class="bi bi-file-earmark-pdf"></i> Descargar Consentimiento (PDF)
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+
+<!-- Leaflet CSS y JS para el mapa -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  // Inicializar el mapa centrado en Zamora, Ecuador
+  const map = L.map('map').setView([-4.0667, -78.95], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  let marker = null;
+
+  // Cargar coordenadas existentes si hay (solo cuando se está editando)
+  {% if object and object.propietario %}
+    {% if object.propietario.latitud and object.propietario.longitud %}
+      const lat = parseFloat("{{ object.propietario.latitud }}");
+      const lng = parseFloat("{{ object.propietario.longitud }}");
+      if (!isNaN(lat) && !isNaN(lng)) {
+        marker = L.marker([lat, lng]).addTo(map);
+        map.setView([lat, lng], 15);
+      }
+    {% endif %}
+  {% endif %}
+
+  // Fija la ubicación (marcador + campos ocultos), redondeando a 6 decimales.
+  // El campo latitud/longitud en la base de datos solo admite 7 decimales;
+  // las coordenadas que entrega Leaflet al hacer clic vienen con precisión
+  // completa de JavaScript (15+ decimales) y Django rechazaba el formulario
+  // por eso, con un mensaje de error que no dejaba claro cuál era el problema.
+  function fijarUbicacion(lat, lng) {
+    const latRedondeada = Number(lat).toFixed(6);
+    const lngRedondeada = Number(lng).toFixed(6);
+
+    document.getElementById('id_latitud').value = latRedondeada;
+    document.getElementById('id_longitud').value = lngRedondeada;
+
+    if (marker) {
+      marker.setLatLng([latRedondeada, lngRedondeada]);
+    } else {
+      marker = L.marker([latRedondeada, lngRedondeada]).addTo(map);
+    }
+    return [Number(latRedondeada), Number(lngRedondeada)];
+  }
+
+  // Diccionario de barrios para búsqueda inversa
+  const barriosZamora = {
+    'Centro': ['centro', 'downtown'],
+    'El Limón': ['limón', 'limon', 'el limón', 'el limon'],
+    'Jaime Roldós': ['roldós', 'roldos', 'jaime roldós', 'jaime roldos'],
+    'Tungurahua': ['tungurahua'],
+    'Ciudadela Municipal': ['ciudadela', 'municipal', 'ciudadela municipal'],
+    'El Ejido': ['ejido', 'el ejido'],
+    'La Vega': ['vega', 'la vega'],
+    'Las Palmeras': ['palmeras', 'las palmeras'],
+    'San Francisco': ['san francisco', 'francisco'],
+    'Isidro Ayora': ['isidro', 'ayora', 'isidro ayora'],
+    'Cumbaratza': ['cumbaratza'],
+    'Guadalupe': ['guadalupe'],
+    'Imbana': ['imbana', 'ímbana'],
+    'Sabanilla': ['sabanilla'],
+    'San Carlos de las Minas': ['san carlos', 'minas', 'san carlos de las minas'],
+    'Timbara': ['timbara', 'tímbara']
+  };
+
+  // Evento de clic en el mapa
+  map.on('click', function(e) {
+    const [lat, lng] = fijarUbicacion(e.latlng.lat, e.latlng.lng);
+
+    // Geocodificación inversa para obtener el nombre del lugar
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=15`)
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.address) {
+          const address = data.display_name.toLowerCase();
+
+          // Intentar encontrar el barrio en la dirección
+          for (const [barrio, keywords] of Object.entries(barriosZamora)) {
+            for (const keyword of keywords) {
+              if (address.includes(keyword)) {
+                // Encontrar la opción correcta en el select
+                const barrioSelect = document.getElementById('id_barrio');
+                for (let i = 0; i < barrioSelect.options.length; i++) {
+                  if (barrioSelect.options[i].value === barrio) {
+                    barrioSelect.selectedIndex = i;
+                    return;
+                  }
+                }
+              }
+            }
+          }
+          // Si no se encuentra, seleccionar "Otro"
+          const barrioSelect = document.getElementById('id_barrio');
+          for (let i = 0; i < barrioSelect.options.length; i++) {
+            if (barrioSelect.options[i].value === 'Otro') {
+              barrioSelect.selectedIndex = i;
+              break;
+            }
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error en geocodificación inversa:', error);
+      });
+  });
+
+  // Mostrar/ocultar campo de raza definida
+  const tipoRazaSelect = document.getElementById('id_tipo_raza');
+  const razaDefinidaContainer = document.getElementById('raza-definida-container');
+
+  function toggleRazaDefinida() {
+    if (tipoRazaSelect.value === 'definida') {
+      razaDefinidaContainer.style.display = 'block';
+    } else {
+      razaDefinidaContainer.style.display = 'none';
+    }
+  }
+
+  tipoRazaSelect.addEventListener('change', toggleRazaDefinida);
+  toggleRazaDefinida(); // Ejecutar al cargar
+
+  // Mostrar/ocultar vacunas
+  const tieneCarnetCheckbox = document.getElementById('id_tiene_carnet_vacunacion');
+  const vacunasContainer = document.getElementById('vacunas-container');
+
+  function toggleVacunas() {
+    if (tieneCarnetCheckbox.checked) {
+      vacunasContainer.style.display = 'block';
+    } else {
+      vacunasContainer.style.display = 'none';
+    }
+  }
+
+  tieneCarnetCheckbox.addEventListener('change', toggleVacunas);
+  toggleVacunas(); // Ejecutar al cargar
+
+  // Sincronizar barrio seleccionado con el mapa (solo si el mapa aún no
+  // tiene un punto marcado, para no pisar una ubicación ya elegida a mano)
+  const barrioSelect = document.getElementById('id_barrio');
+
+  barrioSelect.addEventListener('change', function() {
+    const barrio = this.options[this.selectedIndex].text;
+    if (barrio && barrio !== 'Otro' && barrio !== '---------' && !marker) {
+      buscarEnMapa(barrio + ', Zamora, Ecuador');
+    }
+  });
+
+  // Función para buscar en el mapa usando Nominatim. Devuelve la promesa
+  // del fetch para que quien la llame pueda mostrar resultado/errores.
+  // Se restringe la búsqueda a un recuadro alrededor del cantón Zamora
+  // (bounded=1) para que no traiga resultados de otros lugares del mundo
+  // que coincidan por nombre con lo escrito.
+  function buscarEnMapa(searchQuery) {
+    const ZAMORA_VIEWBOX = '-79.25,-3.70,-78.55,-4.45'; // izq,arriba,der,abajo
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}` +
+      `&limit=1&countrycodes=ec&viewbox=${ZAMORA_VIEWBOX}&bounded=1`;
+
+    return fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const result = data[0];
+          const [lat, lng] = fijarUbicacion(result.lat, result.lon);
+          map.setView([lat, lng], 15);
+          return true;
+        }
+        return false;
+      })
+      .catch(error => {
+        console.error('Error al buscar ubicación:', error);
+        return false;
+      });
+  }
+
+  // Buscador de dirección escrita
+  const direccionInput = document.getElementById('direccion-busqueda');
+  const btnBuscarDireccion = document.getElementById('btn-buscar-direccion');
+  const direccionMsg = document.getElementById('direccion-busqueda-msg');
+
+  function buscarDireccionEscrita() {
+    const valor = direccionInput.value.trim();
+    if (!valor) return;
+
+    btnBuscarDireccion.disabled = true;
+    direccionMsg.textContent = 'Buscando...';
+    direccionMsg.className = 'small mb-2 text-muted';
+
+    buscarEnMapa(valor + ', Zamora, Ecuador').then(function(encontrado) {
+      if (encontrado) {
+        direccionMsg.textContent = 'Ubicación encontrada. Ajusta el marcador haciendo clic en el mapa si no es exacta.';
+        direccionMsg.className = 'small mb-2 text-success';
+      } else {
+        direccionMsg.textContent = 'No se encontró esa dirección. Intenta ser más específico o marca el punto directamente en el mapa.';
+        direccionMsg.className = 'small mb-2 text-danger';
+      }
+      btnBuscarDireccion.disabled = false;
+    });
+  }
+
+  btnBuscarDireccion.addEventListener('click', buscarDireccionEscrita);
+  direccionInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      buscarDireccionEscrita();
+    }
+  });
+
+  // Un clic directo en el mapa siempre tiene la última palabra sobre la
+  // ubicación exacta, incluso si antes se usó el buscador o el barrio.
+  map.on('click', function() {
+    direccionMsg.textContent = '';
+  });
+</script>
+
+{% endblock %}
