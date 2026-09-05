@@ -77,13 +77,13 @@
             <td><small class="text-muted">{{ r.propietario.barrio }}</small></td>
             <td>
               {% if r.resultado_kit_ic == 'A' %}
-                <span class="grupo-badge" style="background-color: #2a9d8f;">A</span>
+                <span class="grupo-badge" style="background-color: #2a78d6;">A</span>
               {% elif r.resultado_kit_ic == 'B' %}
-                <span class="grupo-badge" style="background-color: #e76f51;">B</span>
+                <span class="grupo-badge" style="background-color: #eb6834;">B</span>
               {% elif r.resultado_kit_ic == 'AB' %}
-                <span class="grupo-badge" style="background-color: #e9c46a; color: #000;">AB</span>
+                <span class="grupo-badge" style="background-color: #1baf7a; color: var(--brand-ink);">AB</span>
               {% else %}
-                <span class="grupo-badge bg-secondary">ND</span>
+                <span class="grupo-badge" style="background-color: #898781;">ND</span>
               {% endif %}
             </td>
             <td><small class="text-muted">{{ r.fecha_muestreo|date:"d/m/Y H:i" }}</small></td>

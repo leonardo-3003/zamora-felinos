@@ -4,6 +4,17 @@
 {% block content %}
 
 <style>
+  /* Colores por grupo sanguíneo, fijos y consistentes en todo el dashboard
+     (tarjeta, gráfico de barras, mapa, leyenda y tablas cruzadas). Elegidos y
+     validados para que sean distinguibles con daltonismo (protanopia/deuteranopia/
+     tritanopia) y no se confundan entre sí; "ND" usa el gris neutro de la marca
+     en vez de un color categórico, porque representa "sin dato", no un grupo real. */
+  :root {
+    --grp-A: #2a78d6;
+    --grp-B: #eb6834;
+    --grp-AB: #1baf7a;
+    --grp-ND: #898781;
+  }
   .stat-card {
     border-radius: var(--radius-lg);
     padding: 1.35rem 1.5rem;
@@ -50,7 +61,60 @@
     color: var(--brand-muted);
     font-weight: 600;
   }
-  .legend-pill .dot { width: .65rem; height: .65rem; border-radius: 50%; display: inline-block; }
+  .legend-pill .dot {
+    width: .65rem; height: .65rem; border-radius: 50%; display: inline-block;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.15);
+  }
+
+  /* Barra de proporción 100% apilada, usada en la tarjeta de "Distribución de Grupos" */
+  .mini-stack {
+    display: flex;
+    height: .65rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .3);
+    margin: .5rem 0 .4rem;
+  }
+  .mini-stack .mini-seg { height: 100%; }
+  .mini-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .15rem .7rem;
+    font-size: .78rem;
+    font-weight: 600;
+    opacity: .92;
+  }
+  .mini-legend .dot {
+    width: .55rem; height: .55rem; border-radius: 50%; display: inline-block;
+    margin-right: .3rem; box-shadow: 0 0 0 1px rgba(255,255,255,.6);
+  }
+
+  /* Mini-barras dentro de las celdas de las tablas cruzadas: el ancho es
+     proporcional al máximo de la fila, así se lee la proporción de un vistazo
+     sin perder el número exacto (que siempre queda visible como texto). */
+  .cell-bar-wrap {
+    position: relative;
+    min-width: 3.2rem;
+    height: 1.5rem;
+    background: #eef1f0;
+    border-radius: .35rem;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+  }
+  .cell-bar-wrap .cell-bar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    opacity: .38;
+  }
+  .cell-bar-wrap .cell-val {
+    position: relative;
+    z-index: 1;
+    padding-left: .5rem;
+    font-weight: 700;
+    font-size: .82rem;
+    color: var(--brand-ink);
+  }
 </style>
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
@@ -78,12 +142,25 @@
     <div class="stat-card stat-card--teal">
       <i class="bi bi-droplet-fill stat-icon"></i>
       <div class="stat-label">Distribución de Grupos</div>
-      <div class="stat-value fs-4">
-        {% if total > 0 %}
-          A {{ frecuencias.A|default:0 }} · B {{ frecuencias.B|default:0 }} · AB {{ frecuencias.AB|default:0 }}
-        {% else %}—{% endif %}
-      </div>
-      <div class="stat-foot"><i class="bi bi-bar-chart-fill"></i> Tipificación sanguínea</div>
+      {% if total > 0 %}
+        <div class="mini-stack">
+          {% for g in grupos_labels %}
+            {% with valor=frecuencias|get_item:g %}
+              {% if valor %}
+                <div class="mini-seg" style="width: {% widthratio valor total 100 %}%; background: var(--grp-{{ g }});" title="{{ g }}: {{ valor }}"></div>
+              {% endif %}
+            {% endwith %}
+          {% endfor %}
+        </div>
+        <div class="mini-legend">
+          {% for g in grupos_labels %}
+            <span><span class="dot" style="background: var(--grp-{{ g }});"></span>{{ g }} {{ frecuencias|get_item:g|default:0 }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="stat-value fs-4">—</div>
+      {% endif %}
+      <div class="stat-foot mt-1"><i class="bi bi-bar-chart-fill"></i> Tipificación sanguínea</div>
     </div>
   </div>
   <div class="col-md-4">
@@ -114,10 +191,10 @@
           <i class="bi bi-geo-alt"></i> Mostrando {{ coordenadas|length }} felino{{ coordenadas|length|pluralize }} con ubicación registrada
         </small>
         <div class="d-flex flex-wrap gap-3">
-          <span class="legend-pill"><span class="dot" style="background-color: #2a9d8f;"></span> Grupo A</span>
-          <span class="legend-pill"><span class="dot" style="background-color: #e76f51;"></span> Grupo B</span>
-          <span class="legend-pill"><span class="dot" style="background-color: #e9c46a;"></span> Grupo AB</span>
-          <span class="legend-pill"><span class="dot" style="background-color: #adb5bd;"></span> No determinable</span>
+          <span class="legend-pill"><span class="dot" style="background-color: var(--grp-A);"></span> Grupo A</span>
+          <span class="legend-pill"><span class="dot" style="background-color: var(--grp-B);"></span> Grupo B</span>
+          <span class="legend-pill"><span class="dot" style="background-color: var(--grp-AB);"></span> Grupo AB</span>
+          <span class="legend-pill"><span class="dot" style="background-color: var(--grp-ND);"></span> No determinable</span>
         </div>
       </div>
     {% else %}
@@ -161,16 +238,19 @@
         <span class="fw-semibold">Frecuencia Relativa (%)</span>
       </div>
       <div class="card-body">
-        <table class="table table-sm mb-0">
-          <thead><tr><th>Grupo</th><th>Frecuencia</th><th>%</th></tr></thead>
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr><th>Grupo</th><th>Frecuencia</th><th style="width: 45%;">%</th></tr></thead>
           <tbody>
             {% for g in grupos_labels %}
             <tr>
-              <td>{{ g }}</td>
+              <td><span class="dot" style="display:inline-block; width:.6rem; height:.6rem; border-radius:50%; background: var(--grp-{{ g }}); box-shadow: 0 0 0 1px rgba(0,0,0,.15); margin-right:.4rem;"></span>{{ g }}</td>
               <td>{{ frecuencias|get_item:g|default:0 }}</td>
               <td>
                 {% if total > 0 %}
-                  {% widthratio frecuencias|get_item:g total 100 %}%
+                  <div class="cell-bar-wrap" style="height: 1.2rem;">
+                    <div class="cell-bar" style="width: {% widthratio frecuencias|get_item:g total 100 %}%; background: var(--grp-{{ g }});"></div>
+                    <span class="cell-val" style="font-size: .78rem;">{% widthratio frecuencias|get_item:g total 100 %}%</span>
+                  </div>
                 {% else %}—{% endif %}
               </td>
             </tr>
@@ -202,8 +282,21 @@
         <tbody>
           {% for categoria, conteos in tabla.items %}
           <tr>
-            <td>{{ categoria }}</td>
-            {% for g in grupos_labels %}<td>{{ conteos|get_item:g|default:0 }}</td>{% endfor %}
+            <td class="fw-semibold">{{ categoria }}</td>
+            {% with maxv=conteos|max_value %}
+              {% for g in grupos_labels %}
+                {% with valor=conteos|get_item:g|default:0 %}
+                <td>
+                  <div class="cell-bar-wrap">
+                    {% if valor %}
+                      <div class="cell-bar" style="width: {% widthratio valor maxv 100 %}%; background: var(--grp-{{ g }});"></div>
+                    {% endif %}
+                    <span class="cell-val">{{ valor }}</span>
+                  </div>
+                </td>
+                {% endwith %}
+              {% endfor %}
+            {% endwith %}
           </tr>
           {% empty %}
           <tr><td colspan="{{ grupos_labels|length|add:1 }}" class="text-muted">Sin datos aún.</td></tr>
@@ -232,13 +325,47 @@
       datasets: [{
         label: 'N.º de gatos',
         data: {{ frecuencias_valores|safe }},
-        backgroundColor: ['#2a9d8f', '#e76f51', '#e9c46a', '#adb5bd'],
+        backgroundColor: ['#2a78d6', '#eb6834', '#1baf7a', '#898781'],
+        borderRadius: 4,
+        maxBarThickness: 70,
       }]
     },
     options: {
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item) => {
+              const suma = item.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = suma > 0 ? Math.round((item.parsed.y / suma) * 100) : 0;
+              return `${item.parsed.y} gatos (${pct}%)`;
+            }
+          }
+        }
+      },
       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-    }
+    },
+    // Etiqueta directa con el número encima de cada barra: son solo 4 categorías,
+    // así que etiquetar todas es legible (no es un gráfico de líneas con muchos puntos).
+    plugins: [{
+      id: 'valorSobreBarra',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((dataset, i) => {
+          chart.getDatasetMeta(i).data.forEach((bar, index) => {
+            const valor = dataset.data[index];
+            if (!valor) return;
+            ctx.save();
+            ctx.fillStyle = '#1c2b2a';
+            ctx.font = '700 12px Manrope, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(valor, bar.x, bar.y - 6);
+            ctx.restore();
+          });
+        });
+      }
+    }]
   });
 
   // Mapa de calor (coordenadas solo llega con datos si hay sesión iniciada)
@@ -251,10 +378,10 @@
 
     // Colores por grupo sanguíneo
     const grupoColors = {
-      'A': '#2a9d8f',
-      'B': '#e76f51',
-      'AB': '#e9c46a',
-      'ND': '#adb5bd'
+      'A': '#2a78d6',
+      'B': '#eb6834',
+      'AB': '#1baf7a',
+      'ND': '#898781'
     };
 
     // Datos de coordenadas desde Django
