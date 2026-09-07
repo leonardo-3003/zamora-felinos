@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from django.conf import settings
 from django.db import models
 import uuid
@@ -157,3 +159,28 @@ class RegistroGato(models.Model):
         elif self.edad_meses <= 84:
             return "Adulto (1-7 a)"
         return "Senil (>7 a)"
+
+    @property
+    def whatsapp_url(self):
+        """Enlace de WhatsApp Click-to-Chat para avisarle al propietario el
+        resultado de este registro. WhatsApp no permite adjuntar archivos vía
+        enlace (solo pre-llenar texto), así que el certificado se adjunta a
+        mano desde el chat que se abre."""
+        digitos = "".join(ch for ch in self.propietario.telefono if ch.isdigit())
+        if not digitos:
+            return None
+        if digitos.startswith("593"):
+            numero = digitos
+        elif digitos.startswith("0"):
+            numero = "593" + digitos[1:]
+        else:
+            numero = "593" + digitos
+
+        mensaje = (
+            f"Hola {self.propietario.nombres}, te escribimos del estudio de "
+            f"tipificación sanguínea felina de la Universidad Nacional de Loja. "
+            f"Te compartimos el certificado con el resultado de tu gato "
+            f"{self.nombre or 'sin nombre registrado'}: grupo sanguíneo "
+            f"{self.get_resultado_kit_ic_display()}. ¡Gracias por participar!"
+        )
+        return f"https://wa.me/{numero}?text={quote(mensaje)}"

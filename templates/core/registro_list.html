@@ -89,8 +89,16 @@
             <td><small class="text-muted">{{ r.fecha_muestreo|date:"d/m/Y H:i" }}</small></td>
             <td class="text-center">
               <a href="{% url 'generar_consentimiento' r.pk %}" class="btn btn-success btn-sm" title="Descargar consentimiento informado" target="_blank">
-                <i class="bi bi-file-earmark-pdf"></i> PDF
+                <i class="bi bi-file-earmark-pdf"></i> Consentimiento
               </a>
+              <a href="{% url 'generar_certificado' r.pk %}" class="btn btn-sm" style="background-color: var(--brand-navy); color: #fff;" title="Descargar certificado de resultado (grupo sanguíneo) para enviar al propietario" target="_blank">
+                <i class="bi bi-patch-check-fill"></i> Certificado
+              </a>
+              {% if r.whatsapp_url %}
+              <a href="{{ r.whatsapp_url }}" class="btn btn-sm" style="background-color: #25D366; color: #fff;" title="Abrir WhatsApp del propietario (descarga el certificado primero y adjúntalo a mano en el chat)" target="_blank" rel="noopener">
+                <i class="bi bi-whatsapp"></i>
+              </a>
+              {% endif %}
               <a href="{% url 'registro_update' r.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar registro">
                 <i class="bi bi-pencil"></i>
               </a>

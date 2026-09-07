@@ -130,6 +130,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 # En Vercel no hay un paso de build que corra "collectstatic", así que le pedimos
 # a WhiteNoise que sirva los estáticos directamente desde las apps instaladas
 # (incluye el CSS/JS del admin de Django) sin necesitar collectstatic.

@@ -132,6 +132,16 @@
       color: #fff !important;
       background-color: rgba(255, 255, 255, .16);
     }
+    .navbar-colaboradores {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      background: rgba(255, 255, 255, .92);
+      padding: .3rem .65rem;
+      border-radius: 999px;
+    }
+    .navbar-colaboradores img { height: 22px; width: auto; display: block; }
+    .navbar-colaboradores .divider { width: 1px; height: 18px; background: #d7dfe0; }
     .user-chip {
       display: inline-flex;
       align-items: center;
@@ -177,6 +187,17 @@
       color: var(--brand-muted);
       font-size: .82rem;
     }
+    .zf-footer .colaboradores {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-bottom: .5rem;
+    }
+    .zf-footer .colaboradores img { height: 28px; width: auto; opacity: .9; }
+    .zf-footer a { color: var(--brand-teal-dark); font-weight: 600; text-decoration: none; }
+    .zf-footer a:hover { text-decoration: underline; }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -210,6 +231,11 @@
         </li>
       </ul>
       <div class="d-flex align-items-center gap-3 mt-3 mt-lg-0">
+        <div class="navbar-colaboradores" title="Muestreo en campo realizado por Consultorio Veterinario Camachito y Consultorio Veterinario Valarezo">
+          <img src="{% static 'img/colaboradores/camachito.png' %}" alt="Consultorio Veterinario Camachito">
+          <span class="divider"></span>
+          <img src="{% static 'img/colaboradores/valarezo.png' %}" alt="Consultorio Veterinario Valarezo">
+        </div>
         <span class="user-chip">
           <span class="avatar">{{ user.username|slice:":1" }}</span> {{ user.username }}
         </span>
@@ -229,9 +255,16 @@
     <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard' %}">
       <span class="brand-icon">🐈</span> Zamora Felinos
     </a>
-    <a href="{% url 'login' %}" class="btn btn-outline-light btn-sm">
-      <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
-    </a>
+    <div class="d-flex align-items-center gap-3">
+      <div class="navbar-colaboradores" title="Muestreo en campo realizado por Consultorio Veterinario Camachito y Consultorio Veterinario Valarezo">
+        <img src="{% static 'img/colaboradores/camachito.png' %}" alt="Consultorio Veterinario Camachito">
+        <span class="divider"></span>
+        <img src="{% static 'img/colaboradores/valarezo.png' %}" alt="Consultorio Veterinario Valarezo">
+      </div>
+      <a href="{% url 'login' %}" class="btn btn-outline-light btn-sm">
+        <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+      </a>
+    </div>
   </div>
 </nav>
 {% endif %}
@@ -254,7 +287,13 @@
 
 {% if request.resolver_match.url_name != 'login' %}
 <footer class="zf-footer text-center py-3">
-  Zamora Felinos · Investigación de grupos sanguíneos felinos · Maestría en Medicina Veterinaria, UNL
+  <div class="colaboradores">
+    <img src="{% static 'img/colaboradores/camachito.png' %}" alt="Consultorio Veterinario Camachito">
+    <img src="{% static 'img/colaboradores/valarezo.png' %}" alt="Consultorio Veterinario Valarezo">
+  </div>
+  <div>Zamora Felinos · Investigación de grupos sanguíneos felinos · Maestría en Medicina Veterinaria, UNL</div>
+  <div>Muestreo en campo realizado por Consultorio Veterinario Camachito y Consultorio Veterinario Valarezo</div>
+  <div>Desarrollado por <a href="https://github.com/leonardo-3003" target="_blank" rel="noopener">leonardo-3003</a></div>
 </footer>
 {% endif %}
 </body>

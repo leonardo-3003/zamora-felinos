@@ -66,7 +66,23 @@
         <small>Información de contacto y ubicación</small>
       </div>
     </div>
-    <div class="row g-3">
+
+    {% if not object %}
+    <div class="row g-3 mb-3">
+      <div class="col-12">
+        <label class="form-label fw-semibold" for="propietario_id">¿El propietario ya está registrado?</label>
+        <select class="form-control" id="propietario_id" name="propietario_id">
+          <option value="">+ Registrar un propietario nuevo</option>
+          {% for p in propietarios %}
+            <option value="{{ p.pk }}">{{ p.nombre_completo }} — {{ p.cedula }} ({{ p.barrio }})</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">Si ya tiene otro gato registrado, elígelo aquí y pasa directo a los datos del nuevo felino — no hace falta volver a llenar sus datos.</small>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-3" id="seccion-datos-propietario">
       {% for field in propietario_form %}
         {% if field.name not in 'latitud,longitud' %}
           <div class="col-md-6">
@@ -411,6 +427,27 @@
         console.error('Error en geocodificación inversa:', error);
       });
   });
+
+  // Mostrar/ocultar los datos del propietario según si se eligió uno ya
+  // registrado (para agregarle otro gato) o "+ Registrar un propietario nuevo"
+  {% if not object %}
+  const propietarioSelector = document.getElementById('propietario_id');
+  const seccionDatosPropietario = document.getElementById('seccion-datos-propietario');
+
+  function toggleSeccionPropietario() {
+    const eligioExistente = propietarioSelector.value !== '';
+    seccionDatosPropietario.style.display = eligioExistente ? 'none' : '';
+    if (!eligioExistente) {
+      // El mapa no se dibuja bien si se inicializó mientras su contenedor
+      // estaba oculto (display:none le da tamaño cero) — al volver a
+      // mostrarlo hay que forzar a Leaflet a recalcular su tamaño.
+      setTimeout(function () { map.invalidateSize(); }, 0);
+    }
+  }
+
+  propietarioSelector.addEventListener('change', toggleSeccionPropietario);
+  toggleSeccionPropietario();
+  {% endif %}
 
   // Mostrar/ocultar campo de raza definida
   const tipoRazaSelect = document.getElementById('id_tipo_raza');
