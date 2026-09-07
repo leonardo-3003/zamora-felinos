@@ -178,8 +178,10 @@ class RegistroGato(models.Model):
 
         mensaje = (
             f"Hola {self.propietario.nombres}, te escribimos del estudio de "
-            f"tipificación sanguínea felina de la Universidad Nacional de Loja. "
-            f"Te compartimos el certificado con el resultado de tu gato "
+            f"tipificación sanguínea felina de la Universidad Nacional de Loja, "
+            f"en colaboración con el Consultorio Veterinario Camachito y el "
+            f"Consultorio Veterinario Valarezo. Te compartimos el certificado "
+            f"con el resultado de tu gato "
             f"{self.nombre or 'sin nombre registrado'}: grupo sanguíneo "
             f"{self.get_resultado_kit_ic_display()}. ¡Gracias por participar!"
         )
