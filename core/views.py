@@ -1,6 +1,7 @@
 import csv
 import re
 import unicodedata
+from collections import Counter
 from io import BytesIO
 from datetime import datetime
 
@@ -64,6 +65,59 @@ def _nombre_archivo_amigable(texto):
     return texto or "SinNombre"
 
 
+def _generar_insights(total, frecuencias, registros):
+    """Conclusiones cortas en lenguaje simple a partir de los datos agregados
+    del dashboard, para que se entiendan de un vistazo sin tener que leer las
+    tablas cruzadas (ej. "la mayoría de los gatos son del grupo A")."""
+    if total == 0:
+        return []
+
+    insights = []
+
+    grupo_top, conteo_grupo_top = max(frecuencias.items(), key=lambda kv: kv[1])
+    if conteo_grupo_top > 0:
+        etiqueta_grupo = "no determinable" if grupo_top == "ND" else grupo_top
+        pct = round(conteo_grupo_top / total * 100)
+        insights.append(
+            f"La mayoría de los gatos son del grupo sanguíneo {etiqueta_grupo} "
+            f"({conteo_grupo_top} de {total}, {pct}%)."
+        )
+
+    sanos = sum(1 for r in registros if r["estado_salud"] == "sano")
+    pct_sanos = round(sanos / total * 100)
+    insights.append(f"El {pct_sanos}% de los gatos muestreados están sanos ({sanos} de {total}).")
+
+    hembras = sum(1 for r in registros if r["sexo"] == "H")
+    machos = total - hembras
+    sexo_top = "hembras" if hembras >= machos else "machos"
+    conteo_sexo_top = max(hembras, machos)
+    pct_sexo = round(conteo_sexo_top / total * 100)
+    insights.append(f"Predominan los gatos {sexo_top} ({conteo_sexo_top} de {total}, {pct_sexo}%).")
+
+    EDAD_FRASES = {
+        "Cachorro (<12 m)": "cachorros (menores de 12 meses)",
+        "Adulto (1-7 a)": "adultos (entre 1 y 7 años)",
+        "Senil (>7 a)": "adultos mayores (más de 7 años)",
+    }
+    conteo_edad = Counter(r["grupo_edad"] for r in registros)
+    edad_top, conteo_edad_top = conteo_edad.most_common(1)[0]
+    pct_edad = round(conteo_edad_top / total * 100)
+    insights.append(
+        f"La mayoría son gatos {EDAD_FRASES.get(edad_top, edad_top)} "
+        f"({conteo_edad_top} de {total}, {pct_edad}%)."
+    )
+
+    con_transfusion = sum(1 for r in registros if r["antecedente_transfusion"])
+    if con_transfusion > 0:
+        pct_transf = round(con_transfusion / total * 100)
+        if con_transfusion == 1:
+            insights.append(f"1 gato ({pct_transf}%) tiene antecedente transfusional.")
+        else:
+            insights.append(f"{con_transfusion} gatos ({pct_transf}%) tienen antecedente transfusional.")
+
+    return insights
+
+
 def dashboard(request):
     """Panel público con estadísticas agregadas. El mapa con la ubicación
     exacta de cada domicilio SOLO se calcula y se envía al navegador si hay
@@ -125,7 +179,6 @@ def dashboard(request):
         "Grupo etario": crosstab(registros, "grupo_edad", GRUPOS),
         "Estado de salud": crosstab(registros, "estado_salud", GRUPOS),
         "Antecedente transfusional": crosstab(registros, "antecedente_legible", GRUPOS),
-        "Barrio": crosstab(registros, "propietario__barrio", GRUPOS),
     }
 
     # Hematocrito: es un dato de laboratorio opcional (no todos los registros
@@ -137,10 +190,13 @@ def dashboard(request):
         promedio=Avg("hematocrito"), minimo=Min("hematocrito"), maximo=Max("hematocrito"),
     )
 
+    insights = _generar_insights(total, frecuencias, registros)
+
     contexto = {
         "total": total,
         "frecuencias": frecuencias,
         "cruces": cruces,
+        "insights": insights,
         "grupos_labels": GRUPOS,
         "frecuencias_valores": [frecuencias[g] for g in GRUPOS],
         "coordenadas": coordenadas,

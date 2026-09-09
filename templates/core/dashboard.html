@@ -215,6 +215,22 @@
   </div>
 </div>
 
+{% if insights %}
+<div class="card section-card mb-4">
+  <div class="card-header">
+    <span class="icon-badge" style="background: #6b4c9a;"><i class="bi bi-lightbulb-fill"></i></span>
+    <span class="fw-semibold">Conclusiones rápidas</span>
+  </div>
+  <div class="card-body p-3">
+    <ul class="mb-0 ps-3">
+      {% for insight in insights %}
+        <li class="mb-1">{{ insight }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
 {% if user.is_authenticated %}
 <!-- Mapa de Calor con Distribución Geográfica (solo para el equipo: revela
      la ubicación aproximada del domicilio de cada participante) -->
