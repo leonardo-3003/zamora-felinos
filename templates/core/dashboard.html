@@ -37,6 +37,7 @@
   .stat-card--navy { background: linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%); }
   .stat-card--teal { background: linear-gradient(135deg, var(--brand-teal) 0%, var(--brand-teal-darker) 100%); }
   .stat-card--orange { background: linear-gradient(135deg, var(--brand-orange) 0%, var(--brand-orange-dark) 100%); }
+  .stat-card--plum { background: linear-gradient(135deg, #6b4c9a 0%, #4a3570 100%); }
 
   .section-card .card-header {
     background: #fff;
@@ -156,7 +157,7 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="stat-card stat-card--navy">
       <i class="bi bi-heart-pulse-fill stat-icon"></i>
       <div class="stat-label">Total de Gatos Muestreados</div>
@@ -164,7 +165,7 @@
       <div class="stat-foot"><i class="bi bi-clipboard-data"></i> Registros activos</div>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="stat-card stat-card--teal">
       <i class="bi bi-droplet-fill stat-icon"></i>
       <div class="stat-label">Distribución de Grupos</div>
@@ -189,12 +190,27 @@
       <div class="stat-foot mt-1"><i class="bi bi-bar-chart-fill"></i> Tipificación sanguínea</div>
     </div>
   </div>
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="stat-card stat-card--orange">
       <i class="bi bi-geo-alt-fill stat-icon"></i>
       <div class="stat-label">Cobertura Geográfica</div>
       <div class="stat-value">{{ total_con_ubicacion }}</div>
       <div class="stat-foot"><i class="bi bi-pin-map"></i> Ubicaciones registradas</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card stat-card--plum">
+      <i class="bi bi-clipboard2-pulse-fill stat-icon"></i>
+      <div class="stat-label">Hematocrito Promedio</div>
+      {% if total_con_hematocrito > 0 %}
+        <div class="stat-value">{{ hematocrito_promedio|floatformat:1 }}%</div>
+        <div class="stat-foot">
+          <i class="bi bi-arrow-down-up"></i> {{ hematocrito_minimo|floatformat:1 }}–{{ hematocrito_maximo|floatformat:1 }}% · {{ total_con_hematocrito }} registro{{ total_con_hematocrito|pluralize }}
+        </div>
+      {% else %}
+        <div class="stat-value fs-4">—</div>
+        <div class="stat-foot">Sin datos de hematocrito aún</div>
+      {% endif %}
     </div>
   </div>
 </div>

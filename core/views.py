@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.contrib.staticfiles import finders
+from django.db.models import Avg, Max, Min
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
@@ -127,6 +128,15 @@ def dashboard(request):
         "Barrio": crosstab(registros, "propietario__barrio", GRUPOS),
     }
 
+    # Hematocrito: es un dato de laboratorio opcional (no todos los registros
+    # antiguos lo tienen), así que se agrega aparte con un conteo propio en
+    # vez de asumir que "total" y "con hematocrito" son el mismo número.
+    con_hematocrito_qs = RegistroGato.objects.filter(hematocrito__isnull=False)
+    total_con_hematocrito = con_hematocrito_qs.count()
+    hematocrito_stats = con_hematocrito_qs.aggregate(
+        promedio=Avg("hematocrito"), minimo=Min("hematocrito"), maximo=Max("hematocrito"),
+    )
+
     contexto = {
         "total": total,
         "frecuencias": frecuencias,
@@ -135,6 +145,10 @@ def dashboard(request):
         "frecuencias_valores": [frecuencias[g] for g in GRUPOS],
         "coordenadas": coordenadas,
         "total_con_ubicacion": total_con_ubicacion,
+        "total_con_hematocrito": total_con_hematocrito,
+        "hematocrito_promedio": hematocrito_stats["promedio"],
+        "hematocrito_minimo": hematocrito_stats["minimo"],
+        "hematocrito_maximo": hematocrito_stats["maximo"],
     }
     return render(request, "core/dashboard.html", contexto)
 
@@ -231,7 +245,7 @@ def exportar_csv(request):
         "id_gato", "nombre", "tipo_raza", "raza_definida", "sexo", "edad_meses",
         "propietario_cedula", "propietario_nombres", "propietario_apellidos", "barrio",
         "estado_salud", "temperatura", "peso", "frecuencia_cardiaca", "frecuencia_respiratoria",
-        "tiene_carnet_vacunacion", "antecedente_transfusion", "resultado_kit_ic",
+        "tiene_carnet_vacunacion", "antecedente_transfusion", "resultado_kit_ic", "hematocrito",
         "fecha_muestreo", "observaciones",
     ])
 
@@ -241,7 +255,7 @@ def exportar_csv(request):
             r.id_gato, r.nombre, r.tipo_raza, r.raza_definida, r.sexo, r.edad_meses,
             r.propietario.cedula, r.propietario.nombres, r.propietario.apellidos, r.propietario.barrio,
             r.estado_salud, r.temperatura, r.peso, r.frecuencia_cardiaca, r.frecuencia_respiratoria,
-            r.tiene_carnet_vacunacion, r.antecedente_transfusion, r.resultado_kit_ic,
+            r.tiene_carnet_vacunacion, r.antecedente_transfusion, r.resultado_kit_ic, r.hematocrito,
             r.fecha_muestreo, r.observaciones,
         ])
 
@@ -609,10 +623,14 @@ def generar_certificado_pdf(request, registro_id):
             lbl("Estado de salud"), val(registro.get_estado_salud_display()),
         ],
     ]
+    hematocrito_row = None
+    if registro.hematocrito is not None:
+        filas.append([lbl("Hematocrito"), val(f"{registro.hematocrito} %"), "", ""])
+        hematocrito_row = len(filas) - 1
 
     col_w = [ancho_util * 0.185, ancho_util * 0.315, ancho_util * 0.17, ancho_util * 0.33]
     tabla = Table(filas, colWidths=col_w)
-    tabla.setStyle(TableStyle([
+    estilos_tabla = [
         ("SPAN", (0, 0), (1, 0)),
         ("SPAN", (2, 0), (3, 0)),
         ("BACKGROUND", (0, 0), (1, 0), NAVY),
@@ -626,7 +644,14 @@ def generar_certificado_pdf(request, registro_id):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("GRID", (0, 1), (-1, -1), 0.4, BORDER),
         ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#c7d0cf")),
-    ]))
+    ]
+    if hematocrito_row is not None:
+        # La fila del hematocrito solo tiene una etiqueta/valor — la celda de
+        # valor se extiende sobre las columnas restantes en vez de dejarlas
+        # vacías con el resaltado de la columna "Datos del felino".
+        estilos_tabla.append(("SPAN", (1, hematocrito_row), (3, hematocrito_row)))
+        estilos_tabla.append(("BACKGROUND", (2, hematocrito_row), (3, hematocrito_row), colors.white))
+    tabla.setStyle(TableStyle(estilos_tabla))
     story.append(tabla)
     story.append(Spacer(1, 0.3 * inch))
 

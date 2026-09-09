@@ -133,6 +133,10 @@ class RegistroGato(models.Model):
     resultado_kit_ic = models.CharField(
         "Resultado kit inmunocromatografía", max_length=2, choices=GRUPO_CHOICES
     )
+    hematocrito = models.DecimalField(
+        "Hematocrito (%)", max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="Porcentaje de glóbulos rojos obtenido por microhematocrito centrifugado",
+    )
 
     # Fecha y hora de muestreo auto-completada
     fecha_muestreo = models.DateTimeField("Fecha y hora de muestreo", auto_now_add=True)

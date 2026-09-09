@@ -292,6 +292,15 @@
         {% endif %}
       </div>
 
+      <div class="col-md-6">
+        <label class="form-label" for="{{ form.hematocrito.id_for_label }}">{{ form.hematocrito.label }}</label>
+        {{ form.hematocrito }}
+        <small class="text-muted">{{ form.hematocrito.help_text }}</small>
+        {% if form.hematocrito.errors %}
+          <div class="text-danger small">{{ form.hematocrito.errors|striptags }}</div>
+        {% endif %}
+      </div>
+
       <div class="col-12">
         <label class="form-label" for="{{ form.observaciones.id_for_label }}">{{ form.observaciones.label }}</label>
         {{ form.observaciones }}
