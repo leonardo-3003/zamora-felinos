@@ -24,7 +24,12 @@ SECRET_KEY = os.environ.get(
     "clave-insegura-solo-para-desarrollo-local-cambiar-en-produccion",
 )
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
+# Por defecto DEBUG queda en False si la variable de entorno no está
+# definida (ej. si se borra por error en Vercel): es preferible que el sitio
+# falle "cerrado" (sin mostrar tracebacks ni configuración interna) a que
+# falle "abierto" exponiendo información sensible. Para desarrollo local hay
+# que definir explícitamente DJANGO_DEBUG=True en tu .env (ver .env.example).
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = [
     h.strip()
@@ -150,4 +155,15 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SECURE_SSL_REDIRECT", "True") == "True"
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # HttpOnly en la cookie CSRF: el formulario ya manda el token como campo
+    # oculto (no vía JS), así que no hace falta que JavaScript pueda leer esta
+    # cookie — evita que un XSS pueda robarla.
+    CSRF_COOKIE_HTTPONLY = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # HSTS: le dice al navegador que a partir de ahora siempre use HTTPS con
+    # este dominio. Se empieza en 1 día (no en el típico 1 año) para no
+    # arriesgar dejar el sitio inaccesible si algo falla con el certificado;
+    # una vez confirmado que todo funciona bien por un tiempo, se puede subir
+    # a 31536000 (1 año).
+    SECURE_HSTS_SECONDS = 86400
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True

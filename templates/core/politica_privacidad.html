@@ -1,0 +1,133 @@
+{% extends "core/base.html" %}
+{% block title %}Política de Privacidad · Zamora Felinos{% endblock %}
+{% block content %}
+
+<style>
+  .privacidad-doc h5 {
+    margin-top: 1.75rem;
+    color: var(--brand-navy);
+  }
+  .privacidad-doc h5:first-of-type { margin-top: 0; }
+  .privacidad-doc p, .privacidad-doc li { color: var(--brand-ink); }
+  .privacidad-doc ul { padding-left: 1.25rem; }
+  .completar {
+    background: #fff3cd;
+    border: 1px dashed #e0a800;
+    border-radius: .4rem;
+    padding: .15rem .45rem;
+    font-weight: 600;
+    color: #7a5b00;
+  }
+</style>
+
+<div class="mb-4">
+  <h3 class="mb-1">Política de Privacidad y Tratamiento de Datos</h3>
+  <p class="text-muted mb-0">
+    Estudio de prevalencia de grupos sanguíneos felinos en el cantón Zamora, Ecuador ·
+    Última actualización: <span class="completar">[COMPLETAR: fecha]</span>
+  </p>
+</div>
+
+<div class="card">
+  <div class="card-body p-4 p-md-5 privacidad-doc">
+
+    <div class="alert alert-warning">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      Este texto es un borrador de referencia, no asesoría legal. Antes de publicarlo
+      debe ser revisado por el tutor de tesis o el área legal de la Universidad Nacional
+      de Loja, y completarse toda la información marcada como
+      <span class="completar">[COMPLETAR]</span>.
+    </div>
+
+    <p>
+      Este estudio trata datos personales de los propietarios de los felinos participantes
+      y datos de sus mascotas, en el marco de la investigación de tipificación sanguínea
+      felina del cantón Zamora, realizada por la Maestría en Medicina Veterinaria de la
+      Universidad Nacional de Loja (UNL). Este documento explica qué datos se recopilan,
+      para qué se usan, quién tiene acceso a ellos y qué derechos tiene el propietario
+      sobre su información, conforme a la <strong>Ley Orgánica de Protección de Datos
+      Personales del Ecuador (LOPDP)</strong>.
+    </p>
+
+    <h5>1. Responsable del tratamiento</h5>
+    <p>
+      <span class="completar">[COMPLETAR: nombre del responsable/investigador principal,
+      cargo, correo y teléfono de contacto]</span>, en el marco de la Maestría en Medicina
+      Veterinaria de la Universidad Nacional de Loja.
+    </p>
+
+    <h5>2. Datos personales que se recopilan</h5>
+    <ul>
+      <li><strong>Del propietario:</strong> nombres, apellidos, cédula, teléfono, correo electrónico
+        (opcional) y barrio/sector de residencia.</li>
+      <li><strong>Ubicación:</strong> coordenadas aproximadas del domicilio, únicamente si el
+        propietario las proporciona al momento del registro (uso interno del equipo de
+        investigación para el mapa de distribución geográfica; no se publica a nivel de
+        domicilio exacto para el público general).</li>
+      <li><strong>Del felino:</strong> nombre, raza, sexo, edad, estado de salud, signos vitales,
+        antecedentes de vacunación y transfusión, y el resultado de la muestra de sangre
+        (grupo sanguíneo y hematocrito).</li>
+    </ul>
+
+    <h5>3. Finalidad del tratamiento</h5>
+    <p>
+      Los datos se usan exclusivamente para fines académicos y de investigación científica:
+      determinar la prevalencia de los grupos sanguíneos felinos en Zamora, generar
+      estadísticas agregadas, y entregar a cada propietario el certificado con el resultado
+      de su gato. No se usan con fines comerciales ni se venden a terceros.
+    </p>
+
+    <h5>4. Base legal</h5>
+    <p>
+      El tratamiento se basa en el <strong>consentimiento informado</strong> que cada
+      propietario firma antes de la toma de la muestra de sangre de su felino, donde se
+      explica el procedimiento y se autoriza el uso de sus datos para este estudio.
+    </p>
+
+    <h5>5. Conservación de los datos</h5>
+    <p>
+      Los datos se conservarán
+      <span class="completar">[COMPLETAR: por cuánto tiempo — ej. mientras dure el estudio
+      y su publicación, o un plazo fijo en años]</span>, tras lo cual se eliminarán o
+      anonimizarán.
+    </p>
+
+    <h5>6. Quién tiene acceso a los datos</h5>
+    <ul>
+      <li>El equipo de investigación de la Maestría en Medicina Veterinaria de la UNL.</li>
+      <li>Los consultorios veterinarios que realizan el muestreo en campo: Consultorio
+        Veterinario Camachito y Consultorio Veterinario Valarezo.</li>
+    </ul>
+    <p>No se comparten datos con ninguna otra entidad ni se transfieren fuera del Ecuador.</p>
+
+    <h5>7. Derechos del propietario</h5>
+    <p>Como titular de los datos, en cualquier momento puedes solicitar:</p>
+    <ul>
+      <li><strong>Acceso:</strong> saber qué datos tuyos y de tu gato están registrados.</li>
+      <li><strong>Rectificación:</strong> corregir datos incorrectos o desactualizados.</li>
+      <li><strong>Eliminación:</strong> que se borren tus datos y los de tu gato del sistema.</li>
+      <li><strong>Oposición:</strong> retirar tu consentimiento y dejar de participar en el estudio.</li>
+    </ul>
+    <p>
+      Para ejercer cualquiera de estos derechos, contáctanos a
+      <span class="completar">[COMPLETAR: correo/teléfono de contacto del equipo de investigación]</span>.
+    </p>
+
+    <h5>8. Seguridad de los datos</h5>
+    <p>
+      El sistema solo es accesible al equipo de investigación mediante cuenta con
+      contraseña; la conexión al sitio y a la base de datos está cifrada (HTTPS/SSL); y
+      los datos de ubicación exacta y de contacto no se muestran públicamente — solo se
+      exponen estadísticas agregadas y anónimas en el panel público.
+    </p>
+
+    <h5>9. Contacto</h5>
+    <p>
+      Para preguntas sobre esta política o sobre el tratamiento de tus datos, escribe a
+      <span class="completar">[COMPLETAR: correo de contacto]</span>.
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}

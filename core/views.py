@@ -209,6 +209,13 @@ def dashboard(request):
     return render(request, "core/dashboard.html", contexto)
 
 
+def politica_privacidad(request):
+    """Página pública de política de privacidad / tratamiento de datos
+    (LOPDP - Ecuador). No requiere sesión iniciada a propósito: cualquier
+    propietario participante debe poder consultarla sin necesitar cuenta."""
+    return render(request, "core/politica_privacidad.html")
+
+
 def _resumen_faltantes(queryset, limite=10):
     """Total + lista de nombres (acotada a `limite`, con "y N más" al final)
     de un queryset de RegistroGato — usado para los avisos de "falta cargar

@@ -10,4 +10,5 @@ urlpatterns = [
     path("registros/exportar.csv", views.exportar_csv, name="exportar_csv"),
     path("registros/<int:registro_id>/consentimiento.pdf", views.generar_consentimiento_pdf, name="generar_consentimiento"),
     path("registros/<int:registro_id>/certificado.pdf", views.generar_certificado_pdf, name="generar_certificado"),
+    path("privacidad/", views.politica_privacidad, name="politica_privacidad"),
 ]
