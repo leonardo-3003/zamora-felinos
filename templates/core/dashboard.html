@@ -430,8 +430,13 @@
   {% if user.is_authenticated and coordenadas %}
     const heatmap = L.map('heatmap').setView([-4.0667, -78.95], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+    // Se usan los tiles de CARTO (basados en datos de OpenStreetMap) en vez de
+    // tile.openstreetmap.org directo: ese servidor es solo para pruebas ligeras
+    // y bloquea apps en producción por su política de uso (osm.wiki/Blocked).
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20,
     }).addTo(heatmap);
 
     // Colores por grupo sanguíneo
