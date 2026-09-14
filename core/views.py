@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.contrib.staticfiles import finders
-from django.db.models import Avg, Max, Min
+from django.db.models import Avg, Max, Min, Q
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
@@ -209,6 +209,22 @@ def dashboard(request):
     return render(request, "core/dashboard.html", contexto)
 
 
+def _resumen_faltantes(queryset, limite=10):
+    """Total + lista de nombres (acotada a `limite`, con "y N más" al final)
+    de un queryset de RegistroGato — usado para los avisos de "falta cargar
+    tal dato" en la lista de registros, sin que se vuelvan una pared de texto
+    cuando faltan muchos."""
+    total = queryset.count()
+    nombres = [
+        r.nombre or f"sin nombre ({r.id_gato[:8]}…)"
+        for r in queryset.order_by("nombre")[:limite]
+    ]
+    restantes = total - len(nombres)
+    if restantes > 0:
+        nombres.append(f"y {restantes} más")
+    return total, nombres
+
+
 class RegistroListView(LoginRequiredMixin, ListView):
     model = RegistroGato
     template_name = "core/registro_list.html"
@@ -223,24 +239,17 @@ class RegistroListView(LoginRequiredMixin, ListView):
         if nuevo_pdf.isdigit() and RegistroGato.objects.filter(pk=nuevo_pdf).exists():
             context["nuevo_pdf_id"] = int(nuevo_pdf)
 
-        # Aviso de qué registros aún no tienen hematocrito cargado, calculado
-        # sobre TODOS los registros (no solo la página actual), para que se
-        # sepa a cuáles les falta ese dato aunque estén en otra página. Se
-        # acota la lista de nombres a 10 para que el aviso no se vuelva una
-        # pared de texto cuando faltan muchos.
-        LIMITE_NOMBRES = 10
-        sin_hematocrito = RegistroGato.objects.filter(hematocrito__isnull=True)
-        total_sin_hematocrito = sin_hematocrito.count()
-        nombres = [
-            r.nombre or f"sin nombre ({r.id_gato[:8]}…)"
-            for r in sin_hematocrito.order_by("nombre")[:LIMITE_NOMBRES]
-        ]
-        restantes = total_sin_hematocrito - len(nombres)
-        if restantes > 0:
-            nombres.append(f"y {restantes} más")
-
-        context["total_sin_hematocrito"] = total_sin_hematocrito
-        context["nombres_sin_hematocrito"] = nombres
+        # Avisos de qué registros aún no tienen ciertos datos cargados,
+        # calculados sobre TODOS los registros (no solo la página actual),
+        # para que se sepa a cuáles les falta aunque estén en otra página.
+        context["total_sin_hematocrito"], context["nombres_sin_hematocrito"] = _resumen_faltantes(
+            RegistroGato.objects.filter(hematocrito__isnull=True)
+        )
+        context["total_sin_ubicacion"], context["nombres_sin_ubicacion"] = _resumen_faltantes(
+            RegistroGato.objects.filter(
+                Q(propietario__latitud__isnull=True) | Q(propietario__longitud__isnull=True)
+            )
+        )
         return context
 
 
