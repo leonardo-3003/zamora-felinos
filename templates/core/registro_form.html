@@ -338,13 +338,12 @@
   // Inicializar el mapa centrado en Zamora, Ecuador
   const map = L.map('map').setView([-4.0667, -78.95], 13);
 
-  // Se usan los tiles de CARTO (basados en datos de OpenStreetMap) en vez de
-  // tile.openstreetmap.org directo: ese servidor es solo para pruebas ligeras
-  // y bloquea apps en producción por su política de uso (osm.wiki/Blocked).
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap contributors © CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20,
+  // tile.openstreetmap.org bloquea apps en producción por su política de uso,
+  // y los tiles gratuitos de CARTO ahora también piden API key. Se usan los
+  // tiles de Esri en su lugar: gratuitos para este tipo de uso, sin API key.
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom',
+    maxZoom: 19,
   }).addTo(map);
 
   let marker = null;
