@@ -31,6 +31,16 @@
   </div>
 {% endif %}
 
+{% if total_sin_hematocrito > 0 %}
+  <div class="alert alert-warning d-flex align-items-start gap-2">
+    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+    <div>
+      <strong>{{ total_sin_hematocrito }} registro{{ total_sin_hematocrito|pluralize }} sin hematocrito registrado.</strong>
+      Falta completar: {{ nombres_sin_hematocrito|join:", " }}.
+    </div>
+  </div>
+{% endif %}
+
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
   <div>
     <h3 class="mb-1">Registros de Felinos</h3>
@@ -54,8 +64,12 @@
             <th style="width: 150px;">Propietario</th>
             <th style="width: 120px;">Barrio</th>
             <th style="width: 100px;">Grupo Sanguíneo</th>
+            <th style="width: 110px;">Hematocrito</th>
             <th style="width: 150px;">Fecha Muestreo</th>
-            <th style="width: 180px;" class="text-center">Acciones</th>
+            <th style="width: 90px;" class="text-center">Consentimiento</th>
+            <th style="width: 90px;" class="text-center">Certificado</th>
+            <th style="width: 70px;" class="text-center">WhatsApp</th>
+            <th style="width: 70px;" class="text-center">Editar</th>
           </tr>
         </thead>
         <tbody>
@@ -86,19 +100,34 @@
                 <span class="grupo-badge" style="background-color: #898781;">ND</span>
               {% endif %}
             </td>
+            <td>
+              {% if r.hematocrito %}
+                {{ r.hematocrito }}%
+              {% else %}
+                <span class="badge bg-warning text-dark" title="Falta cargar el hematocrito de este registro">
+                  <i class="bi bi-exclamation-triangle"></i> Falta
+                </span>
+              {% endif %}
+            </td>
             <td><small class="text-muted">{{ r.fecha_muestreo|date:"d/m/Y H:i" }}</small></td>
             <td class="text-center">
               <a href="{% url 'generar_consentimiento' r.pk %}" class="btn btn-success btn-sm" title="Descargar consentimiento informado" target="_blank">
-                <i class="bi bi-file-earmark-pdf"></i> Consentimiento
+                <i class="bi bi-file-earmark-pdf"></i>
               </a>
+            </td>
+            <td class="text-center">
               <a href="{% url 'generar_certificado' r.pk %}" class="btn btn-sm" style="background-color: var(--brand-navy); color: #fff;" title="Descargar certificado de resultado (grupo sanguíneo) para enviar al propietario" target="_blank">
-                <i class="bi bi-patch-check-fill"></i> Certificado
+                <i class="bi bi-patch-check-fill"></i>
               </a>
+            </td>
+            <td class="text-center">
               {% if r.whatsapp_url %}
               <a href="{{ r.whatsapp_url }}" class="btn btn-sm" style="background-color: #25D366; color: #fff;" title="Abrir WhatsApp del propietario (descarga el certificado primero y adjúntalo a mano en el chat)" target="_blank" rel="noopener">
                 <i class="bi bi-whatsapp"></i>
               </a>
               {% endif %}
+            </td>
+            <td class="text-center">
               <a href="{% url 'registro_update' r.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar registro">
                 <i class="bi bi-pencil"></i>
               </a>
@@ -106,7 +135,7 @@
           </tr>
           {% empty %}
           <tr>
-            <td colspan="9" class="text-center text-muted py-5">
+            <td colspan="13" class="text-center text-muted py-5">
               <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
               <p class="mt-3 mb-2">Aún no hay registros</p>
               <a href="{% url 'registro_create' %}" class="btn btn-primary btn-sm">Crear el primero</a>

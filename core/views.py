@@ -222,6 +222,25 @@ class RegistroListView(LoginRequiredMixin, ListView):
         nuevo_pdf = self.request.GET.get("nuevo_pdf", "")
         if nuevo_pdf.isdigit() and RegistroGato.objects.filter(pk=nuevo_pdf).exists():
             context["nuevo_pdf_id"] = int(nuevo_pdf)
+
+        # Aviso de qué registros aún no tienen hematocrito cargado, calculado
+        # sobre TODOS los registros (no solo la página actual), para que se
+        # sepa a cuáles les falta ese dato aunque estén en otra página. Se
+        # acota la lista de nombres a 10 para que el aviso no se vuelva una
+        # pared de texto cuando faltan muchos.
+        LIMITE_NOMBRES = 10
+        sin_hematocrito = RegistroGato.objects.filter(hematocrito__isnull=True)
+        total_sin_hematocrito = sin_hematocrito.count()
+        nombres = [
+            r.nombre or f"sin nombre ({r.id_gato[:8]}…)"
+            for r in sin_hematocrito.order_by("nombre")[:LIMITE_NOMBRES]
+        ]
+        restantes = total_sin_hematocrito - len(nombres)
+        if restantes > 0:
+            nombres.append(f"y {restantes} más")
+
+        context["total_sin_hematocrito"] = total_sin_hematocrito
+        context["nombres_sin_hematocrito"] = nombres
         return context
 
 
