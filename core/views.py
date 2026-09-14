@@ -132,6 +132,8 @@ def dashboard(request):
             "antecedente_transfusion",
             "propietario__barrio",
             "edad_meses",
+            "tipo_raza",
+            "raza_definida",
         )
     )
     total = len(registros)
@@ -174,11 +176,23 @@ def dashboard(request):
     for r in registros:
         r["antecedente_legible"] = "Sí" if r["antecedente_transfusion"] else "No"
 
+    # Raza legible (values() no ejecuta get_FOO_display(), así que se arma a
+    # mano): los mestizos se agrupan como "Mestizo"; los de raza definida
+    # muestran la raza específica, para poder cruzarla con el grupo sanguíneo
+    # — hay razas con diferencias reportadas en la literatura veterinaria.
+    RAZA_DEFINIDA_DICT = dict(RegistroGato.RAZA_DEFINIDA_CHOICES)
+    for r in registros:
+        if r["tipo_raza"] == "definida" and r["raza_definida"]:
+            r["raza_legible"] = RAZA_DEFINIDA_DICT.get(r["raza_definida"], r["raza_definida"])
+        else:
+            r["raza_legible"] = "Mestizo"
+
     cruces = {
         "Sexo": crosstab(registros, "sexo", GRUPOS),
         "Grupo etario": crosstab(registros, "grupo_edad", GRUPOS),
         "Estado de salud": crosstab(registros, "estado_salud", GRUPOS),
         "Antecedente transfusional": crosstab(registros, "antecedente_legible", GRUPOS),
+        "Raza": crosstab(registros, "raza_legible", GRUPOS),
     }
 
     # Hematocrito: es un dato de laboratorio opcional (no todos los registros
